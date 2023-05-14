@@ -1,0 +1,3 @@
+hurt - 3200
+battle-cry - 2600
+def - 7401
