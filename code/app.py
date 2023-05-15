@@ -3,8 +3,8 @@ from pygame_widgets.button import Button
 import pygame_widgets, sys
 from imgs_loading import ImgLoader
 from chars.charater_type import CharacterType
-from enum import Enum
 from background import BackgroundType
+from constants import *
 
 def quit(app):
     app.is_running = False
@@ -32,7 +32,7 @@ class App:
         pygame.mixer.init()
         sound = pygame.mixer.Sound("./music/menu.mp3")
         sound.play(loops=-1)
-        self.screen = pygame.display.set_mode()
+        self.screen = pygame.display.set_mode((SCREEN_SIZE))
         self.is_running = True
         self.FPS = 60
         self.scene = start_scene

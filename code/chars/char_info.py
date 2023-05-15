@@ -8,3 +8,4 @@ class CharInfo:
     image_counter: int
     state: CharacterState
     direction: Direction
+    hp: int

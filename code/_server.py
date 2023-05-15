@@ -26,6 +26,8 @@ def aboba(server_addr_str, client1_addr_str, char_type_value_1, client2_addr_str
     pygame.display.set_mode()
 
     game = ServerGame(CharacterType(char_type_value_1[0]), CharacterType(char_type_value_2[0]))
+    game.char1.set_start_pos()
+    game.char2.set_start_pos(False)
     def send_data(sock):
         clock = pygame.time.Clock()
         while not game.is_ended():

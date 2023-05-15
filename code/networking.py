@@ -24,10 +24,12 @@ class HealthBars:
         self.screen = screen
 
         width, height = pygame.display.Info().current_w, pygame.display.Info().current_h
+        print(f"width={width} height={height}")
         self.height = height // 20
         self.width = width // 5
-        self.left_rect = pygame.rect.Rect(50, 50, self.width*self.char1.hp/100, self.height)
-        self.right_rect = pygame.rect.Rect(width - 50 - self.width*self.char2.hp/100, 50, self.width*self.char2.hp/100, self.height)
+        self.left_rect = pygame.rect.Rect(50, 100, self.width*self.char1.hp/100, self.height)
+        self.right_rect = pygame.rect.Rect(width - 50 - self.width*self.char2.hp/100, 100, self.width*self.char2.hp/100, self.height)
+        print(f"left_rect = {self.left_rect} right_rect = {self.right_rect}")
 
     def draw(self):
         def draw_health_bar(rect, hp):
@@ -68,6 +70,7 @@ class SessionGame:
             char.image_counter = char_info.image_counter
             char.state = char_info.state
             char.direction = char_info.direction
+            char.hp = char_info.hp
 
         set_char(self.char1, char_info_1)
         set_char(self.char2, char_info_2)
@@ -124,7 +127,7 @@ class ClientGame(SessionGame):
             message.append(CharacterSignal.SIT)
         if keys[K_UP]:
             message.append(CharacterSignal.JUMP)
-
+ 
         result = [move_l, move_r]
         for i in range(len(message)):
             result.append(message[i].value)

@@ -3,6 +3,7 @@ from enum import Enum
 from imgs_loading import ImgLoader
 from collections import deque
 from dataclasses import dataclass
+from constants import *
 
 class CharacterState(Enum):
     STAND        = 0 
@@ -87,7 +88,7 @@ class Message():
 
 class Character(pygame.sprite.Sprite):    
 
-    def __init__(self, dir_name):
+    def __init__(self, dir_name, is_left = True):
         super().__init__()
         self.hp = 100
         self.enemy = None
@@ -197,6 +198,14 @@ class Character(pygame.sprite.Sprite):
             }
         }
 
+    def set_start_pos(self, is_left=True):
+        self.rect.x = 0
+        if not is_left:
+            # self.rect.x = SCREEN_SIZE[0] - self.images[self.state][0].get_rect().width
+            self.rect.right = SCREEN_SIZE[0]
+
+        print(f"char rect = {self.rect}")
+
     def load_sounds(self, sounds_dict):
         for key in sounds_dict:
             self.state_info[key][StateInfoType.SOUND] = pygame.mixer.Sound(sounds_dict[key])
@@ -242,6 +251,10 @@ class Character(pygame.sprite.Sprite):
             print(self.images)
             print(self.image_counter)
             print(self.get_image_speed())
+
+        X_DELTA = 150
+        self.rect.right = min(self.rect.right, SCREEN_SIZE[0] + X_DELTA)
+        self.rect.left = max(self.rect.left, 0 - X_DELTA)
 
         if self.direction == Direction.LEFT:
             self.image = pygame.transform.flip(self.image, True, False)

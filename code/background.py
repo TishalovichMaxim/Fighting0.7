@@ -24,4 +24,8 @@ class Background:
         screen.blit(self.bg_image, (0, 0))
 
 if __name__ == "__main__":
-    print(BackgroundFactory.get_background(BackgroundType.DOJO))
+    import pygame
+    pygame.display.init()
+    pygame.display.set_mode()
+    print(BackgroundFactory.get_background(BackgroundType.DOJO).get_rect())
+    print(pygame.display.Info())
