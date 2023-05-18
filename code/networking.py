@@ -1,10 +1,8 @@
-from chars.character import CharacterState, CharacterSignal
-from chars.kirito import Kirito
+from chars.character import CharacterSignal
 from chars.char_factory import CharFactory
-from chars.char_info import CharInfo
-import pygame, threading
-from imgs_loading import ImgLoader
-from chars.ako import Ako
+import pygame
+from enum import Enum, auto
+
 from pygame.constants import (
     KEYDOWN,
     KEYUP,
@@ -16,6 +14,16 @@ from pygame.constants import (
     K_f,
     K_s
 )
+
+class GameOverException(Exception):
+    def __init__(self, game_result, *args: object) -> None:
+        super().__init__(*args)
+        self.game_result = game_result
+
+class GameResult(Enum):
+    WIN = auto()
+    LOSE = auto()
+    ERROR = auto()
 
 class HealthBars:
     def __init__(self, char1, char2, screen) -> None:
@@ -134,7 +142,17 @@ class ClientGame(SessionGame):
 
         return result
             
+    def check_game_end(self):
+        if self.char1.hp <= 0:
+            raise GameOverException(GameResult.LOSE)
+        elif self.char2.hp <= 0:
+            raise GameOverException(GameResult.WIN)
+
     def draw(self):
         self.screen.blit(self.background, (0,0))
         self.char_grp.draw(self.screen)
         self.health_bars.draw()
+
+if __name__ == "__main__":
+    print(GameResult.WIN.value)
+    print(GameResult.LOSE.value)

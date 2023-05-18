@@ -28,17 +28,25 @@ def aboba(server_addr_str, client1_addr_str, char_type_value_1, client2_addr_str
     game = ServerGame(CharacterType(char_type_value_1[0]), CharacterType(char_type_value_2[0]))
     game.char1.set_start_pos()
     game.char2.set_start_pos(False)
-    def send_data(sock):
+
+    def send_data(sock, event):
         clock = pygame.time.Clock()
-        while not game.is_ended():
+        while not event.is_set():
             sock.sendto(game.get_chars_info(), CLIENT_ADDRESS_1)
             sock.sendto(game.get_chars_info(True), CLIENT_ADDRESS_2)
             game.update()
             clock.tick(FPS)
 
-        for _ in range(N_LAST_PACKETS):
-            sock.sendto(game.get_chars_info(), CLIENT_ADDRESS_1)      
+        try:
+            for _ in range(N_LAST_PACKETS):
+                sock.sendto(game.get_chars_info(), CLIENT_ADDRESS_1)      
+        except:
+            pass
+
+        try:
             sock.sendto(game.get_chars_info(True), CLIENT_ADDRESS_2)
+        except:
+            pass
 
     with socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM) as sock:
         sock.bind(SERVER_ADDRESS)
@@ -54,20 +62,25 @@ def aboba(server_addr_str, client1_addr_str, char_type_value_1, client2_addr_str
             print(not connected[0])
             print(not connected[1])
         
-        sending_thread = threading.Thread(target=send_data, args=(sock,))
+        event = threading.Event()
+        sending_thread = threading.Thread(target=send_data, args=(sock, event))
         sending_thread.start()
         clock = pygame.time.Clock()
         sig_sender = SignalsSender()
         while not game.is_ended():
-            pygame.event.pump()
-            data, addr = sock.recvfrom(1024)
-            if addr == CLIENT_ADDRESS_1:
-                game.char1.set_movs(data[0], data[1])
-                for i in range(2, len(data)):
-                    sig_sender.send_sig(game.char1, CharacterSignal(data[i]))
-            else:
-                game.char2.set_movs(data[0], data[1])
-                for i in range(2, len(data)):
-                    sig_sender.send_sig(game.char2, CharacterSignal(data[i]))
+            try:
+                pygame.event.pump()
+                data, addr = sock.recvfrom(1024)
+                if addr == CLIENT_ADDRESS_1:
+                    game.char1.set_movs(data[0], data[1])
+                    for i in range(2, len(data)):
+                        sig_sender.send_sig(game.char1, CharacterSignal(data[i]))
+                else:
+                    game.char2.set_movs(data[0], data[1])
+                    for i in range(2, len(data)):
+                        sig_sender.send_sig(game.char2, CharacterSignal(data[i]))
+            except Exception:
+                event.set()
+                sending_thread.join()
+
         print("The end...")
-        sending_thread.join()

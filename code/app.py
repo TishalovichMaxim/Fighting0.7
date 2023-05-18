@@ -1,46 +1,29 @@
-import pygame
+import pygame, asyncio
 from pygame_widgets.button import Button
 import pygame_widgets, sys
 from imgs_loading import ImgLoader
 from chars.charater_type import CharacterType
 from background import BackgroundType
 from constants import *
+from networking import GameResult
 
 def quit(app):
     app.is_running = False
-    # app.video_thread.join()
     sys.exit()
 
 chosen_char_type = CharacterType.KIRITO
 chosen_map_type = BackgroundType.ROAD
 
 class App:
-    # def gen_background_image(self):
-    #     clock = pygame.time.Clock()
-    #     while self.is_running:
-    #         success, video_image = self.video.read()
-    #         if success:
-    #             video_surf = pygame.image.frombuffer(video_image.tobytes(), video_image.shape[1::-1], "BGR")
-    #             # self.background_image = pygame.transform.scale(video_surf, (self.screen.get_width(), self.screen.get_height()))
-    #             self.background_image = video_surf
-    #         else:
-    #             self.video = cv2.VideoCapture("videos/back.mp4")
-    #         clock.tick(30)
-
     def __init__(self, start_scene):
         pygame.init()
         pygame.mixer.init()
         sound = pygame.mixer.Sound("./music/menu.mp3")
-        sound.play(loops=-1)
+        # sound.play(loops=-1)
         self.screen = pygame.display.set_mode((SCREEN_SIZE))
         self.is_running = True
         self.FPS = 60
         self.scene = start_scene
-
-        # self.background_video = self.video = cv2.VideoCapture("videos/back.mp4")
-        # self.background_image = pygame.Surface((self.screen.get_width(), self.screen.get_height()))
-        # self.video_thread = threading.Thread(target=self.gen_background_image)
-        # self.video_thread.start()
         self.background_image = ImgLoader.load_image("./images/backgrounds/main.png")
 
     def draw(self):
@@ -99,15 +82,44 @@ if __name__ == "__main__":
         from client import Client
         client = Client(('127.0.0.1', 65532), chosen_char_type, chosen_map_type, app.screen)
         try:
-            client.run()
+            print("Running client")
+            game_result = asyncio.run(client.run())
+            print(f"Game result = {game_result}")
+            if game_result == GameResult.ERROR:
+                print("Error result")
+                change_scene(choose_map_scene)
+            else:
+                print("No error result")
+                get_game_result_scene(game_result, chosen_char_type)
+                change_scene(game_result_scene)
         except Exception as e:
             print(e)
+            # print("Aboba")
             change_scene(choose_map_scene)
 
+    def get_game_result_scene(game_result, char_type):
+        global game_result_scene
+        game_result_scene.surfaces = []
+    
+        match char_type:
+            case CharacterType.KIRITO:
+                game_result_scene.surfaces.append((ImgLoader.load_image("./images/characters/kirito/winner/kirito_win.png"), (0, 0)))
+            case CharacterType.AKO:        
+                game_result_scene.surfaces.append((ImgLoader.load_image("./images/characters/ako/winner/ako_win.png"), (0, 0)))
+        
+        game_result_scene.surfaces.append((ImgLoader.load_image("./images/backgrounds/result_caption.png"), (0, 0)))
+        
+        match game_result:
+            case GameResult.WIN:
+                game_result_scene.surfaces.append((ImgLoader.load_image("./images/backgrounds/winners/winner_caption.png"), (0, 0)))
+            case GameResult.LOSE:
+                game_result_scene.surfaces.append((ImgLoader.load_image("./images/backgrounds/losers/game_over.png"), (0, 0)))
+        
     all_widgets = set()
     start_scene = Scene()
     choose_pers_scene = Scene()
     choose_map_scene = Scene()
+    game_result_scene = Scene()
 
     btn_start_game = Button(app.screen,
                             600,
@@ -275,6 +287,20 @@ if __name__ == "__main__":
                             onClickParams=(BackgroundType.TEMPLE,) 
                             )
 
+    btn_ok = Button(app.screen,
+                        650,
+                        700,
+                        img_active.get_rect().width,
+                        img_active.get_rect().height,
+                        image = img_normal,
+                        radius = 20,
+                        text="OK",
+                        textColour = (255, 255, 255),
+                        font=FONT,
+                        onClick=change_scene,
+                        onClickParams=(choose_map_scene, ) 
+                        )
+
     chosen_characters = {
         CharacterType.KIRITO: ImgLoader.load_image('images/characters/kirito/menus/kirito.png'),
         CharacterType.AKO: ImgLoader.load_image('images/characters/ako/menus/ako.png'),
@@ -289,7 +315,7 @@ if __name__ == "__main__":
     app.scene = start_scene
     all_widgets |= {btn_start_game, btn_settings, btn_exit,
                 btn_ako, btn_kirito, btn_to_map, btn_to_menu,
-                btn_dojo, btn_road, btn_temple, btn_to_game, btn_to_choose_char}
+                btn_dojo, btn_road, btn_temple, btn_to_game, btn_to_choose_char, btn_ok}
     
     choose_pers_scene.surfaces.append((chosen_characters[chosen_char_type], (0, 0)))
     choose_map_scene.surfaces.append((chosen_maps[chosen_map_type], (250, 70)))
@@ -297,6 +323,7 @@ if __name__ == "__main__":
     start_scene.add_widget((btn_start_game, btn_settings, btn_exit))
     choose_pers_scene.add_widget((btn_to_map, btn_to_menu, btn_kirito, btn_ako))
     choose_map_scene.add_widget((btn_dojo, btn_temple, btn_road, btn_to_game, btn_to_choose_char))
+    game_result_scene.add_widget((btn_ok, ))
 
     change_scene(start_scene)
     app.run()
