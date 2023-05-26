@@ -253,8 +253,10 @@ class Character(pygame.sprite.Sprite):
             print(self.get_image_speed())
 
         X_DELTA = 150
-        self.rect.right = min(self.rect.right, SCREEN_SIZE[0] + X_DELTA)
-        self.rect.left = max(self.rect.left, 0 - X_DELTA)
+        # self.rect.right = min(self.rect.right, SCREEN_SIZE[0] + X_DELTA)
+        # self.rect.left = max(self.rect.left, 0 - X_DELTA)
+        self.rect.right = min(self.rect.right, SCREEN_SIZE[0])
+        self.rect.left = max(self.rect.left, 0)
 
         if self.direction == Direction.LEFT:
             self.image = pygame.transform.flip(self.image, True, False)
@@ -344,6 +346,13 @@ class Character(pygame.sprite.Sprite):
     def get_info(self)->str:
         return str(self.rect.x) + ',' + str(self.rect.y) + ',' + str(self.image_counter)+ ',' + str(self.state.value) + ',' + str(self.direction.value) + ',' + str(self.hp)
     
+    def get_reverse_info(self):
+        res_direction = Direction.LEFT         
+        if self.direction == Direction.LEFT:
+            res_direction = Direction.RIGHT
+    
+        return str(SCREEN_SIZE[0] - self.rect.left - self.rect.width) + ',' + str(self.rect.y) + ',' + str(self.image_counter)+ ',' + str(self.state.value) + ',' + str(res_direction.value) + ',' + str(self.hp)        
+
     def set_image(self):
         curr_img_list = self.images[self.state]
         self.image = curr_img_list[self.image_counter//self.get_image_speed()]

@@ -208,7 +208,13 @@ class Ako(Character):
                 }
             }
         }
-        sounds = {CharacterState.ATTACK1: 'music/ako/battle-cry.wav', CharacterState.STAND_HURT: 'music/ako/damage.wav'}
+        sounds = {
+                CharacterState.ATTACK1: 'music/ako/battle-cry.wav', 
+                CharacterState.STAND_HURT: 'music/ako/damage.wav',
+                CharacterState.ATTACK2: 'music/ako/attack2.wav',
+                CharacterState.JUMP: 'music/ako/jump.wav',
+                CharacterState.BLOCK: 'music/ako/def.wav',
+                }
         self.load_sounds(sounds)
 
     def get_hit_box(self):

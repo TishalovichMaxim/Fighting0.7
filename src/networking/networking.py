@@ -1,5 +1,6 @@
-from src.chars.character import CharacterSignal
+from src.chars.character import CharacterSignal, Direction
 from src.chars.char_factory import CharFactory
+from src.constants import SCREEN_SIZE
 import pygame
 from enum import Enum, auto
 
@@ -23,6 +24,7 @@ class GameOverException(Exception):
 class GameResult(Enum):
     WIN = auto()
     LOSE = auto()
+    SESSION_BREAK = auto()
     ERROR = auto()
 
 class HealthBars:
@@ -32,12 +34,12 @@ class HealthBars:
         self.screen = screen
 
         width, height = pygame.display.Info().current_w, pygame.display.Info().current_h
-        print(f"width={width} height={height}")
+        # print(f"width={width} height={height}")
         self.height = height // 20
         self.width = width // 5
         self.left_rect = pygame.rect.Rect(50, 100, self.width*self.char1.hp/100, self.height)
         self.right_rect = pygame.rect.Rect(width - 50 - self.width*self.char2.hp/100, 100, self.width*self.char2.hp/100, self.height)
-        print(f"left_rect = {self.left_rect} right_rect = {self.right_rect}")
+        # print(f"left_rect = {self.left_rect} right_rect = {self.right_rect}")
 
     def draw(self):
         def draw_health_bar(rect, hp):
@@ -51,6 +53,11 @@ class SessionGame:
         self.char1 = CharFactory.get_char(char_type_1)
         self.char2 = CharFactory.get_char(char_type_2)
         
+        self.char1.rect.left = 0
+        self.char2.rect.right = SCREEN_SIZE[0]
+
+        self.char2.direction = Direction.LEFT
+
         info_object = pygame.display.Info()
         self.sizes = (info_object.current_w, info_object.current_h)
 
@@ -91,7 +98,7 @@ class ServerGame(SessionGame):
         if not reverse:
             return bytes(self.char1.get_info() + ',' + self.char2.get_info(), encoding='ascii')
         else:
-            return bytes(self.char2.get_info() + ',' + self.char1.get_info(), encoding='ascii')
+            return bytes(self.char2.get_reverse_info() + ',' + self.char1.get_reverse_info(), encoding='ascii')
 
     def get_result(self):
         if self.char1.hp <= 0:
@@ -150,11 +157,11 @@ class ClientGame(SessionGame):
 
         return result
             
-    def check_game_end(self):
-        if self.char1.hp <= 0:
-            raise GameOverException(GameResult.LOSE)
-        elif self.char2.hp <= 0:
-            raise GameOverException(GameResult.WIN)
+    # def check_game_end(self):
+    #     if self.char1.hp <= 0:
+    #         raise GameOverException(GameResult.LOSE)
+    #     elif self.char2.hp <= 0:
+    #         raise GameOverException(GameResult.WIN)
 
     def draw(self):
         self.screen.blit(self.background, (0,0))

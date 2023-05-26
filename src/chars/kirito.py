@@ -180,8 +180,13 @@ class Kirito(Character):
                 }
             }
         }
-        sounds = {CharacterState.ATTACK1: 'music/kirito/long-sword.wav',
-                   CharacterState.BLOCK: 'music/kirito/def.wav'}
+        sounds = {
+                CharacterState.ATTACK1: 'music/kirito/long-sword.wav',
+                CharacterState.BLOCK: 'music/kirito/def.wav',
+                CharacterState.ATTACK2: 'music/kirito/attack2.wav',
+                CharacterState.STAND_HURT: 'music/kirito/damage.wav',
+                CharacterState.JUMP: 'music/kirito/jump.wav'
+                }
         self.load_sounds(sounds)
         
     def get_hit_box(self):

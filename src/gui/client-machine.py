@@ -4,13 +4,15 @@ sys.path.append(sys.path[0] + "\\..\\..")
 from enum import Enum, auto
 from pygame_widgets.button import Button
 from collections import deque
-import pygame, pygame_widgets, socket, threading, time
+import pygame, pygame_widgets, traceback
 from src.utils.imgs_loading import ImgLoader
 from src.chars.character_type import CharacterType
 from src.utils.background import BackgroundType
 from src.constants import *
-from src.networking.operation_result import OperationResult
+from src.networking.networking import GameResult
 from src.networking.client.client import Client
+from src.utils.logger import Logger
+from src.networking.address import AddressFactory
 
 class ClientState(Enum):
     MAIN_MENU = auto()
@@ -20,6 +22,7 @@ class ClientState(Enum):
     WIN = auto()
     LOSE = auto()
     EXIT = auto()
+    ERROR = auto()
 
 class ClientMachine():
     MAIN_SERVER_ADDR = ('127.0.0.1', 65532)
@@ -36,12 +39,16 @@ class ClientMachine():
         char_choose_btns = set((self.btn_to_menu, self.btn_to_map, self.btn_ako, self.btn_kirito))
         map_choose_btns = set((self.btn_to_choose_char, self.btn_to_game, self.btn_dojo, self.btn_road, self.btn_temple))
 
+        
+
         self.handlers = {
             ClientState.MAIN_MENU: self._main_menu_handler,
             ClientState.CHAR_CHOOSE: self._char_choose_handler,
             ClientState.MAP_CHOOSE: self._map_choose_handler,
             ClientState.WIN: self._win_handler,
-            ClientState.LOSE: self._lose_handler
+            ClientState.LOSE: self._lose_handler,
+            ClientState.ERROR: self._error_handler,
+            ClientState.WAITING_GAME: self._waiting_game_handler
         }
 
         self.scene_widgets = {
@@ -49,15 +56,22 @@ class ClientMachine():
             ClientState.CHAR_CHOOSE: char_choose_btns,
             ClientState.MAP_CHOOSE: map_choose_btns,
             ClientState.LOSE: set((self.btn_ok, )),
-            ClientState.WIN: set((self.btn_ok, ))
+            ClientState.WIN: set((self.btn_ok, )),
+            ClientState.ERROR: set((self.btn_ok, )),
+            ClientState.WAITING_GAME: set((self.btn_cancel, ))
         }
 
         self.drawing_layers = {
             'kirito': ImgLoader.load_image('images/characters/kirito/winner/kirito_win.png'),
             'ako': ImgLoader.load_image('images/characters/ako/winner/ako_win.png'),
+            'error-caption': ImgLoader.load_image('images/backgrounds/error/error-caption.png'),
             'dojo': ImgLoader.load_image('images/backgrounds/dojo.jpg'),
             'road': ImgLoader.load_image('images/backgrounds/road.jpg'),
             'temple': ImgLoader.load_image('images/backgrounds/temple.jpg'),
+            'win': ImgLoader.load_image('images/backgrounds/winners/winner_caption.png'),
+            'lose': ImgLoader.load_image('images/backgrounds/losers/game_over.png'),
+            'choose_kirito': ImgLoader.load_image('images/characters/kirito/default/kirito.png'),
+            'choose_ako': ImgLoader.load_image('images/characters/ako/default/ako.png')
         }
 
         self.add_layers = []
@@ -66,6 +80,8 @@ class ClientMachine():
         self.chosen_map = BackgroundType.ROAD
         self._change_state(ClientState.MAIN_MENU)
         self.temp_server_info = None
+
+        self.logger = Logger("Client")
 
     def draw(self):
         self.screen.blit(self.bg_image, (0, 0))
@@ -77,52 +93,6 @@ class ClientMachine():
             handler = self.handlers[self.state]
             handler()
 
-    def get_server_addr(self):
-        def getting_addr(main_server_addr, char_type, waiting_time, client):
-            #add more precise exception handling
-            client.temp_server_info = None
-            try:
-                with socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM) as sock:
-                    sock.settimeout(waiting_time)
-                    sock.connect(main_server_addr)
-                    sock.sendall(bytes([char_type.value]))
-                    data = sock.recv(13)
-
-                    session_server_ip_address = str(data[0]) + '.' + str(data[1]) + '.' + str(data[2]) + '.' + str(data[3])
-                    session_server_port = data[4]*256 + data[5]
-                    
-                    new_client_ip_address = str(data[6]) + '.' + str(data[7]) + '.' + str(data[8]) + '.' + str(data[9])
-                    new_client_port = data[10]*256 + data[11]
-
-                    enemy_char_type = CharacterType(data[12])
-                    
-                    operation_result_value = sock.recv(BUF_SIZE)
-                    print(operation_result_value)
-                    if operation_result_value[0] == OperationResult.GAME_PREPARED.value:
-                        print("Getting value !!!")
-                        client.temp_server_info = ((session_server_ip_address, session_server_port), (new_client_ip_address, new_client_port), enemy_char_type)
-            except Exception as e:
-                print(e)
-                print("Getting main server addr error!")
-                client.temp_server_info = None
-            
-        WATING_TIME = 10
-        addr_getting_thread = threading.Thread(target=getting_addr, args=(self.MAIN_SERVER_ADDR, self.chosen_char, WATING_TIME//2, self))
-        addr_getting_thread.start()
-        start_time = time.time()
-        while time.time() - start_time < WATING_TIME:
-            events = pygame.event.get()
-            pygame.event.pump()#maybe i can to remove it at all
-            self.draw()
-            pygame.display.update()
-    
-        addr_getting_thread.join()
-        print(self.temp_server_info)
-        if self.temp_server_info:
-            self._change_state(ClientState.WIN)
-        else:
-            self._change_state(ClientState.LOSE)
-            
     def _change_state(self, new_state):
         self.add_layers = []
         def hide_widgets(widgets):
@@ -155,29 +125,68 @@ class ClientMachine():
         self._scene_handler()
 
     def _char_choose_handler(self):
-        self.add_layers.append((self.drawing_layers['kirito'], (0, 0)))
+        if self.chosen_char == CharacterType.KIRITO:
+            self.add_layers.append((self.drawing_layers['choose_kirito'], (0, 0)))
+        else:
+            self.add_layers.append((self.drawing_layers['choose_ako'], (0, 0)))
+
+        self._scene_handler()
+
+    def _error_handler(self):
+        self.add_layers.append((self.drawing_layers['error-caption'], (0, 0)))
         self._scene_handler()
 
     def _map_choose_handler(self):
-        self.add_layers.append((self.drawing_layers['dojo'], (0, 0)))
+        match self.chosen_map:
+            case BackgroundType.DOJO:
+                self.add_layers.append((self.drawing_layers['dojo'], (0, 0)))
+            case BackgroundType.ROAD:
+                self.add_layers.append((self.drawing_layers['road'], (0, 0)))
+            case BackgroundType.TEMPLE:
+                self.add_layers.append((self.drawing_layers['temple'], (0, 0)))
+
         self._scene_handler()
 
     def _waiting_game_handler(self):
-        self._scene_handler()
+        try:
+            client = Client(self.chosen_char, self.chosen_map, self.screen, AddressFactory.create_by_addr(self.MAIN_SERVER_ADDR), self)
+            res = client.run()
+        except:
+            traceback.print_exc()
+            print("Error in client running")
+            res = GameResult.ERROR
+        print("play is ended...")
+        print(res)
+
+        match res:
+            case GameResult.WIN:
+                self._change_state(ClientState.WIN)
+            case GameResult.LOSE:
+                self._change_state(ClientState.LOSE)
+            case GameResult.ERROR:
+                self._change_state(ClientState.ERROR)
 
     def _win_handler(self):
-        self.add_layers.append((self.drawing_layers['kirito'], (0, 0)))
+        match self.chosen_char:
+            case CharacterType.KIRITO:
+                self.add_layers.append((self.drawing_layers['kirito'], (0, 0)))
+            case CharacterType.AKO:
+                self.add_layers.append((self.drawing_layers['ako'], (0, 0)))
+        
+        self.add_layers.append((self.drawing_layers['win'], (0, 0)))
         self._scene_handler()
 
     def _lose_handler(self):
-        self.add_layers.append((self.drawing_layers['ako'], (0, 0)))
+        match self.chosen_char:
+            case CharacterType.KIRITO:
+                self.add_layers.append((self.drawing_layers['kirito'], (0, 0)))
+            case CharacterType.AKO:
+                self.add_layers.append((self.drawing_layers['ako'], (0, 0)))
+        
+        self.add_layers.append((self.drawing_layers['lose'], (0, 0)))
         self._scene_handler()
 
     def _init_widgets(self):
-        BUTTON_WIDTH = 250
-        BUTTON_HEIGHT = 80
-        FONT = pygame.font.SysFont('rubik', 36)
-
         def start_game_click():
             nonlocal self
             self._change_state(ClientState.CHAR_CHOOSE)
@@ -198,12 +207,12 @@ class ClientMachine():
         def ako_click():
             nonlocal self
             self.chosen_char = CharacterType.AKO
-            choose_pers('ako')
+            choose_pers('choose_ako')
 
         def kirito_click():
             nonlocal self
             self.chosen_char = CharacterType.KIRITO
-            choose_pers('kirito')
+            choose_pers('choose_kirito')
 
         def to_menu_click():
             nonlocal self
@@ -232,16 +241,14 @@ class ClientMachine():
             nonlocal self
             self._change_state(ClientState.CHAR_CHOOSE)
 
+        def cancel_click():
+            nonlocal self
+            self._change_state(ClientState.MAP_CHOOSE)
+
         def play():
             nonlocal self
-            self.get_server_addr()
-            if self.temp_server_info:
-                try:
-                    client = Client(self.chosen_char, self.chosen_map, self.screen)
-                    client.run(self.temp_server_info)
-                except:
-                    print("Error in game executing")
-            print(f"server addr = {self.temp_server_info}")
+            self._change_state(ClientState.WAITING_GAME)
+            # print(f"server addr = {self.temp_server_info}")
 
         self.btn_start_game = Button(self.screen,
                             600,
@@ -374,7 +381,7 @@ class ClientMachine():
                             onClick=dojo_click,
                             # onClickParams=(BackgroundType.DOJO,) 
                             )
-    
+
         self.btn_road = Button(self.screen,
                             600,
                             200,
@@ -414,10 +421,22 @@ class ClientMachine():
                         # onClickParams=(choose_map_scene, ) 
                         )
         
+        self.btn_cancel = Button(self.screen,
+                                650,
+                                700,
+                                BUTTON_WIDTH,
+                                BUTTON_HEIGHT,
+                                radius = 20,
+                                text="Cancel",
+                                textColour = (255, 255, 255),
+                                font=FONT,
+                                onClick=cancel_click,
+                                )
+        
         return set((self.btn_ok, self.btn_temple, self.btn_road, self.btn_dojo, self.btn_to_choose_char,
                 self.btn_to_game, self.btn_to_menu, self.btn_to_map, self.btn_ako, self.btn_kirito,
-                self.btn_exit, self.btn_settings, self.btn_start_game))
-    
+                self.btn_exit, self.btn_settings, self.btn_start_game, self.btn_cancel))
+
 if __name__ == "__main__":
     cm = ClientMachine()
     cm.run()

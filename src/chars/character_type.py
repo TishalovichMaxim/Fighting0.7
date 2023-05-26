@@ -5,6 +5,4 @@ class CharacterType(Enum):
     AKO = 1
 
 if __name__ == "__main__":
-    a = 1
-    a = CharacterType(1)
-    print(a)
+    pass
